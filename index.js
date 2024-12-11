@@ -1,15 +1,35 @@
 const express = require('express');
 const expressWs = require('express-ws');
 const path = require('path');
+// Mongoose Conection... 
 const mongoose = require('mongoose');
 const session = require('express-session');
 const bcrypt = require('bcrypt');
 
 const PORT = 3000;
 //TODO: Update this URI to match your own MongoDB setup
-const MONGO_URI = 'mongodb://localhost:27017/keyin_test';
+const MONGO_URI = 'mongodb://localhost:27017/votingapp';
 const app = express();
 expressWs(app);
+
+
+// // Vote Model...
+// const voteSchema = new mongoose.Schema({
+//     pollId: { type: mongoose.Schema.Types.ObjectId, ref: 'Poll', required: true },
+//     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+//     selectedOption: { type: String, required: true },
+//     votedAt: { type: Date, default: Date.now }
+// });
+
+// module.exports = mongoose.model('Vote', voteSchema);
+
+// Models Conection To App...
+const User = require('./models/User');
+const Poll = require('./models/Poll');
+
+const Vote = require('./models/Vote');
+
+
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
