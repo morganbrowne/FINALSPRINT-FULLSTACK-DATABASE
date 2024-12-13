@@ -75,6 +75,9 @@ app.get('/', async (request, response) => {
 });
 
 app.get('/login', async (request, response) => {
+    if (request.session.user?.id) {
+        return response.redirect('/dashboard');
+    }
     response.render('login', { errorMessage: null });
 });
 
