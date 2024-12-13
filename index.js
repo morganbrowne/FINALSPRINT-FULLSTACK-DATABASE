@@ -28,6 +28,7 @@ const User = require('./models/User');
 const Poll = require('./models/Poll');
 
 const Vote = require('./models/Vote');
+const { errorMonitor } = require('events');
 
 
 
@@ -89,25 +90,44 @@ app.post('/login', async (request, response) => {
 });
 
 app.get('/signup', async (request, response) => {
-    const { email, password } = request.body;
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-        return response('signup', { errorMessage: "Email already in use "});
+
+  
+    if (request.session.user?.id) {
+        return response.redirect('/dashboard');
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ email, password: hashedPassword });
-    await newUser.save();
-
-    request.session.user = { id: newUser._id, email: newUser.email };
-    response.redirect('/dashboard');
-    
-    // if (request.session.user?.id) {
-    //     return response.redirect('/dashboard');
-    // }
-
-    // return response.render('signup', { errorMessage: null });
+    return response.render('signup', { errorMessage: null });
 });
+
+app.post('/signup', async (request, response) => {
+
+    const { email, password } = request.body;
+
+    try {
+        if (!email || !password) {
+            return response.render('signup', {errorMessage: 'Email and password are required. '});
+        }
+        
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return response.render('signup', { errorMessage: "Email already in use "});
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newUser = new User({ email, password: hashedPassword });
+        await newUser.save();
+
+        request.session.user = { id: newUser._id, email: newUser.email };
+        return response.redirect('/dashboard');
+} catch  (error) {
+    console.error('Sign up Error:', error);
+    return response.render('signup', { errorMessage: 'Error occured, please try again. '});
+}
+
+
+        
+});
+    
 
 app.get('/dashboard', async (request, response) => {
     if (!request.session.user?.id) {
