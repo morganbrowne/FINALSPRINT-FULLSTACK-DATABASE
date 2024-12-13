@@ -236,3 +236,27 @@ async function onNewVote(pollId, selectedOption) {
         console.error('Error updating poll:', error);
     }
 }
+
+
+// Voting submission end point. 
+app.post('/vote', async (request, response) => {
+    const { pollId, selectedOption } = request.body;
+    const userId = request.session.user?.id;
+
+    if (!userId) {
+        return response.status(401).send('Unauthorized');
+    }
+
+    try {
+        const vote = await Vote.create({
+            pollId,
+            userId,
+            selectedOption,
+        });
+        response.status(201).send({ success: true, vote });
+    } catch (error) {
+        console.error('Error saving vote:', error);
+        response.status(500).send({ success: false, message: 'Error saving vote' });
+    }
+});
+
