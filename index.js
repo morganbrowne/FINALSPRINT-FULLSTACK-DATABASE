@@ -43,43 +43,70 @@ app.use(session({
 }));
 let connectedClients = [];
 
-//Note: Not all routes you need are present here, some are missing and you'll need to add them yourself.
 
+
+ 
+
+// Websocket... 
 app.ws('/ws', (socket, request) => {
     connectedClients.push(socket);
 
     socket.on('message', async (message) => {
         const data = JSON.parse(message);
+        if (data.type === 'vote') {
+            await onNewVote(data.pollId, data.selectedOption);
+        }
         
     });
 
     socket.on('close', async (message) => {
-        
+        connectedClients = connectedClients.filter((client) => client !== socket);
     });
 });
 
+
+// Routes... 
 app.get('/', async (request, response) => {
     if (request.session.user?.id) {
         return response.redirect('/dashboard');
     }
-
     response.render('index/unauthenticatedIndex', {});
 });
 
 app.get('/login', async (request, response) => {
-    
+    response.render('login', { errorMessage: null });
 });
 
 app.post('/login', async (request, response) => {
-    
+    const { email, password } = request.body;
+    const user = await User.findOne({ email });
+
+    if (user && (await bcrypt.compare(password, user.password))) {
+        request.session.user = {id: user_id, email: user.email};
+        return response.redirect('/dashboard');
+    }
+    response.render('login', {errorMessage: 'Invalid email or password'});
 });
 
 app.get('/signup', async (request, response) => {
-    if (request.session.user?.id) {
-        return response.redirect('/dashboard');
+    const { email, password } = request.body;
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+        return response('signup', { errorMessage: "Email already in use "});
     }
 
-    return response.render('signup', { errorMessage: null });
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new User({ email, password: hashedPassword });
+    await newUser.save();
+
+    request.session.user = { id: newUser._id, email: newUser.email };
+    response.redirect('/dashboard');
+    
+    // if (request.session.user?.id) {
+    //     return response.redirect('/dashboard');
+    // }
+
+    // return response.render('signup', { errorMessage: null });
 });
 
 app.get('/dashboard', async (request, response) => {
@@ -87,31 +114,49 @@ app.get('/dashboard', async (request, response) => {
         return response.redirect('/');
     }
 
+    const polls = await Poll.find();
+    response.render('index/authenticatedIndex', { polls });
+
     //TODO: Fix the polls, this should contain all polls that are active. I'd recommend taking a look at the
     //authenticatedIndex template to see how it expects polls to be represented
-    return response.render('index/authenticatedIndex', { polls: [] });
+    // return response.render('index/authenticatedIndex', { polls: [] });
 });
 
 app.get('/profile', async (request, response) => {
     
 });
 
-app.get('/createPoll', async (request, response) => {
-    if (!request.session.user?.id) {
-        return response.redirect('/');
+app.get('/createPoll', async (req, res) => {
+    if (!req.session.user?.id) {
+        return res.redirect('/');
     }
+    res.render('createPoll');
+});
 
-    return response.render('createPoll')
+app.get('/createPoll', async (request, response) => {
+    const { question, options } = request.body;
+    const formattedOptions = Object.values(options).map((option) => ({ answer: option, votes: 0}));
+
+    const pollCreationError = await onCreateNewPoll(question, formattedOptions);
+    if (pollCreationError) {
+        return response.render('createPoll', { errorMessage: pollCreationError });
+    }
+    response.redirect('/dashboard');
+    // if (!request.session.user?.id) {
+    //     return response.redirect('/');
+    // }
+
+    // return response.render('createPoll')
 });
 
 // Poll creation
-app.post('/createPoll', async (request, response) => {
-    const { question, options } = request.body;
-    const formattedOptions = Object.values(options).map((option) => ({ answer: option, votes: 0 }));
+// app.post('/createPoll', async (request, response) => {
+//     const { question, options } = request.body;
+//     const formattedOptions = Object.values(options).map((option) => ({ answer: option, votes: 0 }));
 
-    const pollCreationError = onCreateNewPoll(question, formattedOptions);
-    //TODO: If an error occurs, what should we do?
-});
+//     const pollCreationError = onCreateNewPoll(question, formattedOptions);
+//     //TODO: If an error occurs, what should we do?
+// });
 
 mongoose.connect(MONGO_URI)
     .then(() => app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`)))
@@ -137,7 +182,26 @@ async function onCreateNewPoll(question, pollOptions) {
 
     return null;
 }
+async function onCreateNewPoll(question, pollOptions) {
+    try {
+        const newPoll = new Poll({ question, options: pollOptions });
+        await newPoll.save();
 
+        // Notify all connected clients about the new poll
+        const pollData = {
+            type: 'newPoll',
+            id: newPoll._id,
+            question: newPoll.question,
+            options: newPoll.options,
+        };
+
+        connectedClients.forEach((client) => client.send(JSON.stringify(pollData)));
+    } catch (error) {
+        console.error(error);
+        return 'Error creating the poll, please try again';
+    }
+    return null;
+}
 /**
  * Handles processing a new vote on a poll
  * 
@@ -147,9 +211,26 @@ async function onCreateNewPoll(question, pollOptions) {
  * @param {string} pollId The ID of the poll that was voted on
  * @param {string} selectedOption Which option the user voted for
  */
+
+// Process a new vote... 
 async function onNewVote(pollId, selectedOption) {
     try {
-        
+        const poll = await Poll.findById(pollId); // How to find the poll by id
+        if (!poll) throw new Error('Poll not found');
+
+        const option = poll.options.find((opt) => opt.answer === selectedOption);
+        if (!option) throw new Error('Invalid option');
+
+        option.votes += 1;
+        await poll.save(); // saving the new poll.
+
+        // Updated poll... 
+        const updatedPoll = {
+            type: 'newVote', 
+            id: poll._id,
+            options: poll.options,
+        };
+        connectedClients.forEach((client) => client.send(JSON.stringify(updatedPoll)));
     }
     catch (error) {
         console.error('Error updating poll:', error);
