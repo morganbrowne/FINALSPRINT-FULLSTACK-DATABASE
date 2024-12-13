@@ -96,7 +96,7 @@ app.get('/signup', async (request, response) => {
 
   
     if (request.session.user?.id) {
-        return response.redirect('/dashboard');
+        return response.redirect('dashboard');
     }
 
     return response.render('signup', { errorMessage: null });
@@ -130,15 +130,49 @@ app.post('/signup', async (request, response) => {
 
         
 });
+
+app.post('/vote', async (request, response) => {
+    const { 'poll-id': pollId, 'poll-option': selectedOption } = request.body;
+
+    try {
+        const poll = await Poll.findById(pollId);
+        if (!poll) {
+            return response.status(404).send('Poll not found');
+        }
+
+        // Update the vote count for the selected option
+        const option = poll.options.find(opt => opt.answer === selectedOption);
+        if (option) {
+            option.votes++;
+            await poll.save();
+
+            // Notify connected clients (real-time update)
+            connectedClients.forEach(client => {
+                client.send(JSON.stringify({ type: 'vote', pollId, selectedOption, votes: option.votes }));
+            });
+        }
+
+        return response.redirect('/dashboard');
+    } catch (error) {
+        console.error('Error processing vote:', error);
+        return response.status(500).send('Internal Server Error');
+    }
+});
+
     
 
 app.get('/dashboard', async (request, response) => {
     if (!request.session.user?.id) {
         return response.redirect('/');
-    }
+    } 
 
-    const polls = await Poll.find();
-    response.render('index/authenticatedIndex', { polls });
+    try {
+        const polls = await Poll.find();
+        response.render('index/authenticatedIndex', { polls });
+    } catch (error) {
+        console.error('Error loading dashboard:', error);
+        return response.render('error', { errorMessage: 'Failed to load dashboard.'});     
+    }
 
     //TODO: Fix the polls, this should contain all polls that are active. I'd recommend taking a look at the
     //authenticatedIndex template to see how it expects polls to be represented
