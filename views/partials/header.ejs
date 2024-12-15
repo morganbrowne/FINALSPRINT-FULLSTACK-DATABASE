@@ -1,13 +1,21 @@
 <header>
     <nav>
         <ul>
-            <li><a href="/">Home</a></li>
+            <!-- Home Page Link -->
+            <li><a href="/polls">Home</a></li>
+
+            <!-- Profile Page Link (Only visible when user is logged in) -->
             <% if (user) { %>
                 <li><a href="/profile">Profile</a></li>
+            <% } %>
+
+            <!-- Logout Link (Only visible when user is logged in) -->
+            <% if (user) { %>
                 <li><a href="/logout">Logout</a></li>
             <% } else { %>
+                <!-- Login Link (For users not logged in) -->
                 <li><a href="/login">Login</a></li>
-                <li><a href="/signup">Signup</a></li>
+                <li><a href="/signup">Sign Up</a></li>
             <% } %>
         </ul>
     </nav>

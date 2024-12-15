@@ -1,0 +1,19 @@
+<%- include('partials/header', { user: user }) %>
+
+<div class="main-content">
+    <h1>Polls</h1>
+    <ul>
+        <% polls.forEach(poll => { %>
+            <li>
+                <a href="/polls/<%= poll.id %>"><%= poll.title %></a>
+                <p><%= poll.description %></p>
+            </li>
+        <% }) %>
+    </ul>
+
+    <% if (user) { %>
+        <a href="/polls/new" class="button">Create New Poll</a>
+    <% } else { %>
+        <p><a href="/login">Log in</a> to create new polls.</p>
+    <% } %>
+</div>

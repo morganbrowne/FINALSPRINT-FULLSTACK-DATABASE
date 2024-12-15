@@ -68,10 +68,10 @@ app.get('/', async (request, response) => {
 });
 
 app.get('/login', async (request, response) => {
-  if (request.session.user?.id) {
-    return response.redirect('/dashboard');
-  }
-  response.render('login', { errorMessage: null });
+//   if (request.session.user?.id) {
+//     return response.redirect('/dashboard');
+//   }
+  response.render('login', { errorMessage: null, user: null });
 });
 
 app.post('/login', async (request, response) => {
@@ -90,7 +90,7 @@ app.get('/signup', async (request, response) => {
     return response.redirect('/dashboard');
   }
 
-  return response.render('signup', { errorMessage: null });
+  return response.render('signup', { errorMessage: null, user: request.session.user });
 });
 
 app.post('/signup', async (request, response) => {
@@ -114,7 +114,7 @@ app.post('/signup', async (request, response) => {
     const newUser = new User({ username, password: hashedPassword });
     await newUser.save();
 
-    request.session.user = { id: newUser._id, username: newUser.email };
+    request.session.user = { id: newUser._id, username: newUser.username };
     return response.redirect('/dashboard');
   } catch (error) {
     console.error('Sign up Error:', error);
@@ -166,7 +166,7 @@ app.get('/dashboard', async (request, response) => {
 
   try {
     const polls = await Poll.find().lean();
-    response.render('index/authenticatedIndex', { polls });
+    response.render('index/authenticatedIndex', {  user: request.session.user, polls });
   } catch (error) {
     console.error('Error loading dashboard:', error);
     return response.render('error', {
@@ -256,18 +256,18 @@ mongoose
  * @param {[answer: string, votes: number]} pollOptions The various answers the poll allows and how many votes each answer should start with
  * @returns {string?} An error message if an error occurs, or null if no error occurs.
  */
-async function onCreateNewPoll(question, pollOptions) {
-  try {
-    //TODO: Save the new poll to MongoDB
-  } catch (error) {
-    console.error(error);
-    return 'Error creating the poll, please try again';
-  }
+// async function onCreateNewPoll(question, pollOptions) {
+//   try {
+//     //TODO: Save the new poll to MongoDB
+//   } catch (error) {
+//     console.error(error);
+//     return 'Error creating the poll, please try again';
+//   }
 
-  //TODO: Tell all connected sockets that a new poll was added
+//   //TODO: Tell all connected sockets that a new poll was added
 
-  return null;
-}
+//   return null;
+// }
 async function onCreateNewPoll(question, pollOptions) {
   try {
     const newPoll = new Poll({ question, options: pollOptions });
@@ -344,4 +344,31 @@ app.post('/vote', async (request, response) => {
     console.error('Error saving vote:', error);
     response.status(500).send({ success: false, message: 'Error saving vote' });
   }
+});
+
+app.get('/logout', (req, res) => {
+    req.session.destroy(err => {
+        if (err) {
+            console.error('Error clearing session:', err);
+            return res.redirect('/polls'); // Redirect to the homepage even if an error occurs
+        }
+        res.redirect('/'); // Redirect to the homepage after logging out
+    });
+});
+
+app.get('/profile', (req, res) => {
+    if (!req.session.user) {
+        return res.redirect('/login'); // Redirect to login if user is not logged in
+    }
+    res.render('profile', { user: req.session.user });
+});
+
+app.get('/polls', async (req, res) => {
+    try {
+        const polls = await Poll.find(); // Replace with your DB call to fetch polls
+        res.render('polls', { user: req.session.user, polls });
+    } catch (error) {
+        console.error('Error fetching polls:', error);
+        res.status(500).send('Internal Server Error');
+    }
 });
