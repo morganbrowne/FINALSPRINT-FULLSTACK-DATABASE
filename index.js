@@ -64,7 +64,7 @@ app.get('/', async (request, response) => {
   if (request.session.user?.id) {
     return response.redirect('/dashboard');
   }
-  response.render('index/unauthenticatedIndex', {});
+  response.render('index/unauthenticatedIndex', { user: request.session.user });
 });
 
 app.get('/login', async (request, response) => {
@@ -76,7 +76,7 @@ app.get('/login', async (request, response) => {
 
 app.post('/login', async (request, response) => {
   const { username, password } = request.body;
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ username });
 
   if (user && (await bcrypt.compare(password, user.password))) {
     request.session.user = { id: user._id, username: user.username };
@@ -87,7 +87,7 @@ app.post('/login', async (request, response) => {
 
 app.get('/signup', async (request, response) => {
   if (request.session.user?.id) {
-    return response.redirect('dashboard');
+    return response.redirect('/dashboard');
   }
 
   return response.render('signup', { errorMessage: null });
@@ -235,6 +235,10 @@ app.post('/createPoll', async (request, response) => {
 //     const pollCreationError = onCreateNewPoll(question, formattedOptions);
 //     //TODO: If an error occurs, what should we do?
 // });
+app.get('/your-route', (req, res) => {
+    res.render('index/unauthenticatedIndex', { user: req.session.user });
+});
+
 
 mongoose
   .connect(MONGO_URI)

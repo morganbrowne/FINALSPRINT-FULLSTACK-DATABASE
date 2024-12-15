@@ -1,6 +1,7 @@
 <!-- TODO: Header? -->
-
+<%- include('partials/header', { user: request.session.user }) %>
 <div class="main-content">
+    
     <h1>Sign Up</h1>
     <form action="/signup" method="post" style="width: 300px;">
         <% if (errorMessage) { %>

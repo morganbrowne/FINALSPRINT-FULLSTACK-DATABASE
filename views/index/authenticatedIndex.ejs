@@ -1,4 +1,5 @@
 <!-- TODO: Header? -->
+<%- include('partials/header', { user: request.session.user }) %>
 <div class="main-content">
     <h1>Active Polls</h1>
     <a href= "/createPoll" class="action-button">Create A Poll</a>
