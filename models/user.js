@@ -7,6 +7,8 @@ const userSchema = new mongoose.Schema({
     pollsVotedIn: { type: [mongoose.Schema.Types.ObjectId], ref: 'Poll' }
 });
 
+const User = mongoose.models.User || mongoose.model("User", userSchema);
+
 //  Hash the passwords with bcrypt... 
 userSchema.pre('save', async function (next){
     if (!this.isModified('password')) return next();
@@ -14,4 +16,4 @@ userSchema.pre('save', async function (next){
     next();
 });
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = User;

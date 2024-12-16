@@ -12,22 +12,13 @@ const MONGO_URI = 'mongodb://localhost:27017/votingapp';
 const app = express();
 expressWs(app);
 
-// // Vote Model...
-// const voteSchema = new mongoose.Schema({
-//     pollId: { type: mongoose.Schema.Types.ObjectId, ref: 'Poll', required: true },
-//     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-//     selectedOption: { type: String, required: true },
-//     votedAt: { type: Date, default: Date.now }
-// });
-
-// module.exports = mongoose.model('Vote', voteSchema);
-
 // Models Conection To App...
 const User = require('./models/User');
 const Poll = require('./models/Poll');
 
 const Vote = require('./models/Vote');
 const { errorMonitor } = require('events');
+const user = require('./models/user');
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -64,14 +55,14 @@ app.get('/', async (request, response) => {
   if (request.session.user?.id) {
     return response.redirect('/dashboard');
   }
-  response.render('index/unauthenticatedIndex', { user: request.session.user });
+  response.render('index/unauthenticatedIndex', { user: request.session.user || null });
 });
 
 app.get('/login', async (request, response) => {
 //   if (request.session.user?.id) {
 //     return response.redirect('/dashboard');
 //   }
-  response.render('login', { errorMessage: null, user: null });
+  response.render('login', { errorMessage: null, user: request.session.user || null });
 });
 
 app.post('/login', async (request, response) => {
@@ -82,7 +73,7 @@ app.post('/login', async (request, response) => {
     request.session.user = { id: user._id, username: user.username };
     return response.redirect('/dashboard');
   }
-  response.render('login', { errorMessage: 'Invalid username or password' });
+  response.render('login', { errorMessage: 'Invalid username or password', user: request.session.user || null });
 });
 
 app.get('/signup', async (request, response) => {
@@ -90,7 +81,7 @@ app.get('/signup', async (request, response) => {
     return response.redirect('/dashboard');
   }
 
-  return response.render('signup', { errorMessage: null, user: request.session.user });
+  return response.render('signup', { errorMessage: null, user: request.session.user || null });
 });
 
 app.post('/signup', async (request, response) => {
@@ -100,6 +91,7 @@ app.post('/signup', async (request, response) => {
     if (!username || !password) {
       return response.render('signup', {
         errorMessage: 'Username and password are required. ',
+        user: request.session.user || null
       });
     }
 
@@ -107,6 +99,7 @@ app.post('/signup', async (request, response) => {
     if (existingUser) {
       return response.render('signup', {
         errorMessage: 'username already in use ',
+        user: request.session.user || null
       });
     }
 
@@ -120,6 +113,7 @@ app.post('/signup', async (request, response) => {
     console.error('Sign up Error:', error);
     return response.render('signup', {
       errorMessage: 'Error occured, please try again. ',
+      user: request.session.user || null
     });
   }
 });
@@ -171,21 +165,17 @@ app.get('/dashboard', async (request, response) => {
     console.error('Error loading dashboard:', error);
     return response.render('error', {
       errorMessage: 'Failed to load dashboard.',
+      user: request.session.user || null
     });
   }
-
-  //TODO: Fix the polls, this should contain all polls that are active. I'd recommend taking a look at the
-  //authenticatedIndex template to see how it expects polls to be represented
-  // return response.render('index/authenticatedIndex', { polls: [] });
 });
 
-app.get('/profile', async (request, response) => {});
 
 app.get('/createPoll', async (req, res) => {
   if (!req.session.user?.id) {
     return res.redirect('/');
   }
-  res.render('createPoll');
+  res.render('createPoll', { user: req.session.user });
 });
 
 app.post('/createPoll', async (request, response) => {
@@ -194,6 +184,7 @@ app.post('/createPoll', async (request, response) => {
   if (!question || !options || !Object.keys(options).length) {
     return response.render('createPoll', {
       errorMessage: 'Questions and options are required',
+      user: request.session.user || null
     });
   }
   const formattedOptions = Object.values(options).map(option => ({
@@ -213,28 +204,11 @@ app.post('/createPoll', async (request, response) => {
     console.error('Error creating poll', error);
     response.render('createPoll', {
       errorMessage: 'Failed to create poll. Please try again.',
+      user: request.sesion.user || null
     });
   }
-  // const pollCreationError = await onCreateNewPoll(question, formattedOptions);
-  // if (pollCreationError) {
-  //     return response.render('createPoll', { errorMessage: pollCreationError });
-  // }
-  // response.redirect('/dashboard');
-  // if (!request.session.user?.id) {
-  //     return response.redirect('/');
-  // }
-
-  // return response.render('createPoll')
 });
 
-// Poll creation
-// app.post('/createPoll', async (request, response) => {
-//     const { question, options } = request.body;
-//     const formattedOptions = Object.values(options).map((option) => ({ answer: option, votes: 0 }));
-
-//     const pollCreationError = onCreateNewPoll(question, formattedOptions);
-//     //TODO: If an error occurs, what should we do?
-// });
 app.get('/your-route', (req, res) => {
     res.render('index/unauthenticatedIndex', { user: req.session.user });
 });
